@@ -28,7 +28,13 @@ class aLogInputArgError(aLogBaseError):
     """Excpetion when input arguments are invalid"""
     pass
 
+class aLogUnknownHandlers(aLogBaseError):
+    """Excpetion when found an existing logger with handlers that aren't familiar"""
+    pass
+
+
 __all__ = [
     "aLogBaseError",
-    "aLogInputArgError"
+    "aLogInputArgError",
+    "aLogUnknownHandlers"
 ]
