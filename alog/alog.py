@@ -11,12 +11,17 @@ from .errors import *
 
 timezone_fcn = time.localtime
 
+# simple logger
+# file logger (if given values, then do something)
+# rotating file logger
+# complex logger (simple + rotating)
+
 class logger:
     _log_levels = [logging.NOTSET, logging.DEBUG, logging.INFO, logging.WARN, logging.WARNING, logging.ERROR, logging.FATAL, logging.CRITICAL]
 
-    _logger : logging.Logger
-    _name : str
-    _filename : str
+    _logger = None
+    _name = ''
+    _filename = ''
 
     def __init__( 
         self, 
@@ -61,6 +66,29 @@ class logger:
         
         self._set_timezone(timezone_fcn)
     
+    def set_rotating_file_handler(self, max_bytes = 1e6, backup_count = 5, file_log_level=logging.NOTSET):
+        if not (isinstance(max_bytes, float) or isinstance(max_bytes,int)) or max_bytes <= 0:
+            raise aLogInputArgError('Expected a positive integer in max_bytes field (got "{}")'.format(max_bytes))
+        max_bytes = int(max_bytes)
+        
+        if not isinstance(backup_count,int) or backup_count < 0:
+            raise aLogInputArgError('Expected a positive integer in backup_count field (got "{}")'.format(backup_count))
+        
+        handlers = self._find_matching_handlers((logging.FileHandler))
+        for handler in handlers:
+            if isinstance(handler, logging.FileHandler):
+                hndl_name = getattr(handler.stream, 'name', '')
+                if hndl_name == self._filename:
+                    # don't make one, it's already there
+                    return
+                else:
+                    raise aLogUnknownHandlers('Found FileHandler in logger with an unknown file (got {})'.format(hndl_name))
+        
+        fp = logging.FileHandler(filename=self._filename)
+        fp.setLevel(level=file_log_level)
+        fp.setFormatter(self._get_format())
+        self._logger.addHandler(fp)
+        
     def _set_log_levels(self):
         logging.addLevelName(logging.DEBUG,   colored('DEBUG','cyan'))
         logging.addLevelName(logging.INFO,    colored('INFO ','green'))
@@ -80,7 +108,8 @@ class logger:
     def _set_stderr_handler(self, print_log_lvl):
         ch = logging.StreamHandler()
         ch_name = getattr(ch.stream, 'name', '')
-        for handler in self._logger.handlers:
+        handlers = self._find_matching_handlers((logging.StreamHandler))
+        for handler in handlers:
             if isinstance(handler, logging.StreamHandler):
                 hndl_name = getattr(handler.stream, 'name', '')
                 if hndl_name == ch_name:
@@ -94,7 +123,8 @@ class logger:
         self._logger.addHandler(ch)
 
     def _set_file_handler(self, file_log_level):
-        for handler in self._logger.handlers:
+        handlers = self._find_matching_handlers((logging.FileHandler))
+        for handler in handlers:
             if isinstance(handler, logging.FileHandler):
                 hndl_name = getattr(handler.stream, 'name', '')
                 if hndl_name == self._filename:
@@ -113,6 +143,16 @@ class logger:
         while self._logger.hasHandlers():
             self._logger.removeHandler(self._logger.handlers[0])
     
+    def _find_matching_handlers(self, handlers_type_tuple = ()):
+        #if not handlers_type_tuple and all([isinstance(handler_type,logging.Handler) for handler_type in handlers_type_tuple])
+        response = []
+        if handlers_type_tuple:
+            for handler in self._logger.handlers:
+                if isinstance(handler, handlers_type_tuple):
+                    response.append(handler)
+        
+        return response
+
     def debug(self, string):
         self.log.debug(string)
     
